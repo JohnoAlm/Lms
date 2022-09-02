@@ -8,120 +8,92 @@ using Microsoft.EntityFrameworkCore;
 using Lms.Data.Data;
 using Lms.Core.Entities;
 using Lms.Core.Repositories;
+using AutoMapper;
+using Lms.Core.Dto;
 
 namespace Lms.Api.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/modules")]
     [ApiController]
     public class ModulesController : ControllerBase
     {
-        private readonly LmsApiContext _context;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
 
-        public ModulesController(LmsApiContext context, IUnitOfWork unitOfWork)
+        public ModulesController(IUnitOfWork unitOfWork, IMapper mapper)
         {
-            _context = context;
             _unitOfWork = unitOfWork;
+            _mapper = mapper;
         }
 
-        // GET: api/Modules
+
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Module>>> GetModule()
         {
-          if (_context.Module == null)
-          {
-              return NotFound();
-          }
-            return await _context.Module.ToListAsync();
+            // Tar ut ALLA moduler från databasen
+            var modules = await _unitOfWork.ModuleRepository.GetAllModules();
+
+            // Mappar från ALLA moduler till en IEnumerable av ModuleDto så att vi kan iterera på dem
+            var dto = _mapper.Map<IEnumerable<ModuleDto>>(modules);
+
+            return Ok(dto);
         }
 
-        // GET: api/Modules/5
-        [HttpGet("{id}")]
+
+        [HttpGet]
+        [Route("{id}")]
         public async Task<ActionResult<Module>> GetModule(int id)
         {
-          if (_context.Module == null)
-          {
-              return NotFound();
-          }
-            var @module = await _context.Module.FindAsync(id);
+            // Tar ut EN module från databasen
+            var module = await _unitOfWork.ModuleRepository.GetModule(id);
 
-            if (@module == null)
-            {
-                return NotFound();
-            }
+            // Mappar från EN module till ModuleDto
+            var dto = _mapper.Map<ModuleDto>(module);
 
-            return @module;
+            return Ok(dto);
         }
 
-        // PUT: api/Modules/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutModule(int id, Module @module)
+
+        [HttpPut]
+        [Route("id")]
+        public async Task<IActionResult> PutModule(int id, ModuleDto dto)
         {
-            if (id != @module.Id)
-            {
-                return BadRequest();
-            }
+            // Tar ut modulen från databasen
+            var module = await _unitOfWork.ModuleRepository.GetModule(id);
 
-            _context.Entry(@module).State = EntityState.Modified;
+            // Gör en null-check på modulen
+            if (module == null) return NotFound();
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ModuleExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
+            // Mappar från dto till module
+            _mapper.Map(dto, module);
 
-            return NoContent();
+            // Sparar ändringarna i databasen
+            await _unitOfWork.CompleteAsync();
+
+            // Mappar tillbaka till ModuleDto
+            return Ok(_mapper.Map<ModuleDto>(module));
+
         }
 
-        // POST: api/Modules
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+
         [HttpPost]
-        public async Task<ActionResult<Module>> PostModule(Module @module)
+        public async Task<ActionResult<Module>> PostModule(ModuleDto dto)
         {
-          if (_context.Module == null)
-          {
-              return Problem("Entity set 'LmsApiContext.Module'  is null.");
-          }
-            _context.Module.Add(@module);
-            await _context.SaveChangesAsync();
+            var module = _mapper.Map<Module>(dto);
+            _unitOfWork.ModuleRepository.Add(module);
+            await _unitOfWork.CompleteAsync();
 
-            return CreatedAtAction("GetModule", new { id = @module.Id }, @module);
+            return CreatedAtAction(nameof(GetModule), new { id = module.Id }, dto);
         }
 
-        // DELETE: api/Modules/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteModule(int id)
-        {
-            if (_context.Module == null)
-            {
-                return NotFound();
-            }
-            var @module = await _context.Module.FindAsync(id);
-            if (@module == null)
-            {
-                return NotFound();
-            }
+        //// DELETE: api/Modules/5
+        //[HttpDelete]
+        //[Route("{id}")]
+        //public async Task<IActionResult> DeleteModule(int id)
+        //{
+            
+        //}
 
-            _context.Module.Remove(@module);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-
-        private bool ModuleExists(int id)
-        {
-            return (_context.Module?.Any(e => e.Id == id)).GetValueOrDefault();
-        }
+       
     }
 }

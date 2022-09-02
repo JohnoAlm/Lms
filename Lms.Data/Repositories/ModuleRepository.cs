@@ -29,7 +29,7 @@ namespace Lms.Data.Repositories
 
         public async Task<bool> AnyAsync(int? id)
         {
-            return await _context.Module.AnyAsync(c => c.Id == id);
+            return await _context.Module.AnyAsync(c => c. Id == id);
         }
 
         public async Task<Module> FindAsync(int? id)
@@ -42,7 +42,7 @@ namespace Lms.Data.Repositories
             return await _context.Module.ToListAsync();
         }
 
-        public async Task<Module> GetCourse(int? id)
+        public async Task<Module> GetModule(int? id)
         {
             return await _context.Module.FirstOrDefaultAsync(m => m.Id == id);
         }

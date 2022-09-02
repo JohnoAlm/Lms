@@ -8,6 +8,8 @@ using Microsoft.EntityFrameworkCore;
 using Lms.Data.Data;
 using Lms.Core.Entities;
 using Lms.Core.Repositories;
+using AutoMapper;
+using Lms.Core.Dto;
 
 namespace Lms.Api.Controllers
 {
@@ -15,101 +17,77 @@ namespace Lms.Api.Controllers
     [ApiController]
     public class CoursesController : ControllerBase
     {
-        private readonly LmsApiContext _context;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IMapper _mapper;
 
-        public CoursesController(LmsApiContext context, IUnitOfWork unitOfWork)
+        public CoursesController(IUnitOfWork unitOfWork, IMapper mapper)
         {
-            _context = context;
             _unitOfWork = unitOfWork;
+            _mapper = mapper;
         }
 
-        // GET: api/Courses
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Course>>> GetCourse()
         {
+            // Tar ut ALLA courses från databasen
             var courses = await _unitOfWork.CourseRepository.GetAllCourses();
-            return Ok(courses);
+
+            // Mappar från ALLA courses till en IEnumerable av CourseDto så att vi kan iterera på dem
+            var dto = _mapper.Map<IEnumerable<CourseDto>>(courses);
+            return Ok(dto);
         }
 
-        // GET: api/Courses/5
-        [HttpGet("{id}")]
+
+        [HttpGet]
+        [Route("{id}")]
         public async Task<ActionResult<Course>> GetCourse(int id)
         {
+            // Tar ut EN course från databasen
             var course = await _unitOfWork.CourseRepository.FindAsync(id);
-            return Ok(course);
+
+            // Mappar från EN course till CourseDto
+            var dto = _mapper.Map<CourseDto>(course);
+            return Ok(dto);
         }
 
-        // PUT: api/Courses/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutCourse(int id, Course course)
+
+        [HttpPut]
+        [Route("{id}")]
+        public async Task<IActionResult> PutCourse(int id, CourseDto dto)
         {
-            course = await _unitOfWork.CourseRepository.GetCourse(id);
+            // Tar ut course från databasen
+            var course = await _unitOfWork.CourseRepository.GetCourse(id);
 
-            if (id != course.Id)
-            {
-                return BadRequest();
-            }
+            // Gör en null-check på course
+            if (course == null) return NotFound();
 
-            _unitOfWork.CourseRepository.Update(course);
+            // Mappar från dto till course
+            _mapper.Map(dto, course);
 
-            try
-            {
-                await _unitOfWork.CompleteAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                //if (!CourseExists(id))
-                //{
-                //    return NotFound();
-                //}
-                //else
-                //{
-                //    throw;
-                //}
-            }
+            // Sparar ändringarna i databasen
+            await _unitOfWork.CompleteAsync();
 
-            return NoContent();
+            // Mappar tillbaka till CourseDto
+            return Ok(_mapper.Map<CourseDto>(course));
         }
 
-        // POST: api/Courses
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+
         [HttpPost]
-        public async Task<ActionResult<Course>> PostCourse(Course course)
+        public async Task<ActionResult<Course>> PostCourse(CourseDto dto)
         {
-            if (await _unitOfWork.CourseRepository.GetCourse(course.Id) != null)
-            {
-                ModelState.AddModelError("Id", "Id is already occupied!");
-                return BadRequest(ModelState);
-            }
-
+            var course = _mapper.Map<Course>(dto);
             _unitOfWork.CourseRepository.Add(course);
             await _unitOfWork.CompleteAsync();
-            
-            return CreatedAtAction(nameof(GetCourse), new { id = course.Id }, course);
+
+            return CreatedAtAction(nameof(GetCourse), new { id = course.Id }, dto);
         }
 
-        // DELETE: api/Courses/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteCourse(int id)
-        {
-            var course = await _unitOfWork.CourseRepository.FindAsync(id);
-
-            if (course == null)
-            {
-                return NotFound();
-            }
-
-            _unitOfWork.CourseRepository.Remove(course);
-            await _unitOfWork.CompleteAsync();  
-
-            return NoContent();
-        }
-
-        //private async bool CourseExists(int id)
+        
+        //[HttpDelete]
+        //[Route("{id}")]
+        //public async Task<IActionResult> DeleteCourse(int id)
         //{
-        //    return await _unitOfWork.CourseRepository?.AnyAsync(id);
+            
         //}
     }
 }
